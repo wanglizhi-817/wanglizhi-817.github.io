@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="从缩放点积注意力、多头机制和位置编码出发，理解 Transformer 为什么改变了序列建模，也看清它没有解决什么。"><meta name="robots" content="index,follow"><meta name="theme-color" content="#f7f7f5"><link rel="canonical" href="https://wanglizhi-817.github.io/notes/attention-is-all-you-need-reading/"><link rel="alternate" hreflang="zh-CN" href="https://wanglizhi-817.github.io/notes/attention-is-all-you-need-reading/"><link rel="alternate" hreflang="en" href="https://wanglizhi-817.github.io/en/notes/attention-is-all-you-need-reading/"><link rel="alternate" hreflang="x-default" href="https://wanglizhi-817.github.io/notes/attention-is-all-you-need-reading/"><link rel="icon" href="/avatar.jpg" type="image/jpeg"><link rel="apple-touch-icon" href="/avatar.jpg"><link rel="alternate" type="application/rss+xml" title="LIZI STACK RSS" href="/rss.xml"><meta property="og:type" content="article"><meta property="og:site_name" content="LIZI STACK"><meta property="og:title" content="精读 Transformer：Attention 为什么能替代循环 · LIZI STACK"><meta property="og:description" content="从缩放点积注意力、多头机制和位置编码出发，理解 Transformer 为什么改变了序列建模，也看清它没有解决什么。"><meta property="og:url" content="https://wanglizhi-817.github.io/notes/attention-is-all-you-need-reading/"><meta property="og:locale" content="zh_CN"><meta property="og:locale:alternate" content="en_US"><meta property="article:published_time" content="2026-10-28T00:00:00.000Z"><meta property="article:modified_time" content="2026-10-28T00:00:00.000Z"><meta name="twitter:card" content="summary"><script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"LIZI STACK","description":"从缩放点积注意力、多头机制和位置编码出发，理解 Transformer 为什么改变了序列建模，也看清它没有解决什么。","url":"https://wanglizhi-817.github.io/","inLanguage":"zh-CN","author":{"@type":"Person","name":"吃栗子不"}}</script><title>精读 Transformer：Attention 为什么能替代循环 · LIZI STACK</title><link rel="stylesheet" href="/_astro/BaseLayout.BYkMXDTN.css"></head><body><a class="skip-link" href="#main">跳到正文</a><header class="site-header" data-pagefind-ignore><a class="brand" href="/" aria-label="LIZI STACK 首页"><span class="brand-wordmark">LIZI STACK</span></a><div class="header-actions"><nav class="desktop-nav" aria-label="主导航"><a class="active" href="/">文章</a><a href="/archive/">归档</a><a href="/resources/">资料</a><a href="/about/">关于</a></nav><div class="header-utilities"><a class="search-link" href="/search/" aria-label="搜索"><span aria-hidden="true">⌕</span><span>搜索</span></a><a class="language-switch" href="/en/notes/attention-is-all-you-need-reading/" aria-label="切换语言"><span class="current-language">中</span><span>EN</span></a></div><details class="mobile-menu"><summary aria-label="菜单"><span class="menu-icon" aria-hidden="true"><i></i><i></i></span><span>菜单</span></summary><nav aria-label="主导航"><a class="active" href="/">文章</a><a href="/archive/">归档</a><a href="/resources/">资料</a><a href="/about/">关于</a></nav></details></div></header><main id="main" data-pagefind-body><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"精读 Transformer：Attention 为什么能替代循环","description":"从缩放点积注意力、多头机制和位置编码出发，理解 Transformer 为什么改变了序列建模，也看清它没有解决什么。","datePublished":"2026-10-28T00:00:00.000Z","dateModified":"2026-10-28T00:00:00.000Z","author":{"@type":"Person","name":"吃栗子不"},"mainEntityOfPage":"https://wanglizhi-817.github.io/notes/attention-is-all-you-need-reading/","inLanguage":"zh-CN"}</script><article class="article wrap"><header class="article-header"><div class="post-meta" data-pagefind-ignore><a href="/topics/paper-reading/">论文精读</a><time datetime="2026-10-28T00:00:00.000Z">2026年10月28日</time><span>3 分钟</span></div><h1>精读 Transformer：Attention 为什么能替代循环</h1><p>从缩放点积注意力、多头机制和位置编码出发，理解 Transformer 为什么改变了序列建模，也看清它没有解决什么。</p><a class="article-language" href="/en/notes/attention-is-all-you-need-reading/" data-pagefind-ignore>Read in English →</a></header><details class="mobile-toc" data-pagefind-ignore><summary>本篇目录</summary><nav class="table-of-contents" aria-label="本篇目录"><p>本篇目录</p><ol><li><a href="#它试图解决什么" data-toc-link>它试图解决什么</a></li><li><a href="#缩放点积注意力" data-toc-link>缩放点积注意力</a></li><li><a href="#为什么需要多头" data-toc-link>为什么需要多头</a></li><li><a href="#没有循环顺序从哪里来" data-toc-link>没有循环，顺序从哪里来</a></li><li><a href="#论文真正改变的工程条件" data-toc-link>论文真正改变的工程条件</a></li><li><a href="#我的理解" data-toc-link>我的理解</a></li></ol></nav></details><div class="article-layout"><div class="article-content"><div class="prose"><p>论文：<a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>，Vaswani 等，NeurIPS 2017。</p>
+<p>今天回看这篇论文，最容易被低估的不是 Attention 本身，而是作者对计算路径的重新设计：序列中的任意两个位置，可以在一次注意力计算中直接建立联系；训练也不必再沿时间步串行推进。</p>
+<h2 id="它试图解决什么">它试图解决什么</h2>
+<p>RNN 把序列压进逐步更新的隐藏状态。这个归纳偏置很自然，但带来两个工程问题：长距离信息必须经过多步传播，训练难以充分并行。CNN 可以并行，却需要堆叠多层才能扩大感受野。</p>
+<p>Transformer 的选择更直接：让每个位置查看整段序列，并为其他位置动态分配权重。路径变短了，计算也变成适合 GPU 的大规模矩阵运算。</p>
+<h2 id="缩放点积注意力">缩放点积注意力</h2>
+<p>每个 token 被投影成 Query、Key 和 Value。Query 与所有 Key 做相似度计算，经过 softmax 后成为 Value 的加权系数：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Attention(Q, K, V) = softmax(QKᵀ / √dₖ) V</span></span></code></pre>
+<p>除以 <code>√dₖ</code> 不是装饰。当维度增大时，点积的绝对值容易变大，让 softmax 进入梯度很小的饱和区；缩放让训练保持稳定。</p>
+<p>注意力的本质也不只是“寻找最相关的词”。它是在当前层、当前语境下，为信息路由计算一张动态的连接图。</p>
+<h2 id="为什么需要多头">为什么需要多头</h2>
+<p>单个注意力空间很难同时表达多种关系。Multi-Head Attention 先把表示投影到多个子空间，各自计算注意力，再拼接输出。不同头因此有机会关注位置关系、语法依赖、指代或任务相关模式。</p>
+<p>多头并不保证每个头都具有清晰语义，但它提供了并行学习多种关系的容量。工程上更重要的是：头数、单头维度和总计算量必须一起看，而不是把“更多头”简单理解成“更强”。</p>
+<h2 id="没有循环顺序从哪里来">没有循环，顺序从哪里来</h2>
+<p>Self-Attention 对输入排列本身没有感知，因此论文加入正弦和余弦位置编码。它为每个位置提供可区分、又具有规律性的信号。后来的相对位置编码和 RoPE 改变了具体实现，但问题没有变化：模型必须以某种方式知道 token 的顺序和距离。</p>
+<p>原始结构还包含三类看似普通、却决定训练可行性的部件：残差连接、Layer Normalization，以及逐位置前馈网络。注意力负责 token 之间的信息交换，前馈网络负责对每个位置的表示做非线性变换。</p>
+<h2 id="论文真正改变的工程条件">论文真正改变的工程条件</h2>
+<p>论文在 WMT 2014 英德翻译上报告 28.4 BLEU，在英法翻译上报告 41.8 BLEU。比数字更长久的影响，是它同时获得了质量、并行训练效率和更短的信息路径。</p>
+<p>但标准 Self-Attention 对序列长度具有平方级的注意力矩阵开销。上下文越来越长时，显存、带宽和推理延迟都会成为瓶颈。后来的 FlashAttention、稀疏注意力和线性注意力，本质上都在回答同一个问题：怎样保留全局信息路由的能力，同时降低系统成本。</p>
+<h2 id="我的理解">我的理解</h2>
+<p>Transformer 最值得反复学习的，不是一张固定架构图，而是一种设计方式：先重新审视信息必须经过的路径，再选择最适合硬件的计算形式。</p>
+<p>模型结构的突破，往往同时也是计算系统的突破。理解这一点，比记住每个模块的名字更接近这篇论文的核心。</p>
+</div><footer class="article-footer"><div class="post-tags" aria-label="文章标签"><a href="/tags/Transformer/">#Transformer</a><a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">#大模型</a><a href="/tags/%E6%B3%A8%E6%84%8F%E5%8A%9B/">#注意力</a><a href="/tags/%E8%AE%BA%E6%96%87%E7%B2%BE%E8%AF%BB/">#论文精读</a></div><p>如果这篇文章对你有帮助，欢迎写信和我交流。</p><a href="mailto:wlz2024fall@163.com">来信交流 →</a></footer><nav class="article-pagination" aria-label="文章导航" data-pagefind-ignore><a href="/notes/why-write/"><small>← 上一篇</small><strong>为什么要写这个博客：给技术成长留一份版本记录</strong></a><a class="next-note" href="/notes/learning-in-public/"><small>下一篇 →</small><strong>把学习过程写出来，而不只写模型结论</strong></a></nav><section class="article-related" aria-labelledby="related-heading" data-pagefind-ignore><p class="eyebrow">RELATED WRITING</p><h2 id="related-heading">相关阅读</h2><div><a href="/notes/react-reading/"><span>论文精读 · 2026年10月14日</span><strong>精读 ReAct：让 Agent 在推理与行动之间形成闭环</strong></a><a href="/notes/deepfm-reading/"><span>论文精读 · 2026年10月21日</span><strong>精读 DeepFM：一次学习低阶与高阶特征交互</strong></a><a href="/notes/esmm-reading/"><span>论文精读 · 2026年10月18日</span><strong>精读 ESMM：在全样本空间建模点击后转化</strong></a></div></section><section class="article-discussion" aria-labelledby="discussion-heading" data-pagefind-ignore><p class="eyebrow">DISCUSSION</p><h2 id="discussion-heading">讨论</h2><script src="https://giscus.app/client.js" data-repo="wanglizhi-817/lizhi-stack-comments" data-repo-id="R_kgDOVi4hsg" data-category="Announcements" data-category-id="DIC_kwDOVi4hss4DKYbz" data-mapping="specific" data-term="attention-is-all-you-need-reading" data-strict="1" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy" crossorigin="anonymous" async></script><noscript>请启用 JavaScript 以加载评论。</noscript></section></div><aside class="article-aside" aria-label="本篇目录" data-pagefind-ignore><nav class="table-of-contents" aria-label="本篇目录"><p>本篇目录</p><ol><li><a href="#它试图解决什么" data-toc-link>它试图解决什么</a></li><li><a href="#缩放点积注意力" data-toc-link>缩放点积注意力</a></li><li><a href="#为什么需要多头" data-toc-link>为什么需要多头</a></li><li><a href="#没有循环顺序从哪里来" data-toc-link>没有循环，顺序从哪里来</a></li><li><a href="#论文真正改变的工程条件" data-toc-link>论文真正改变的工程条件</a></li><li><a href="#我的理解" data-toc-link>我的理解</a></li></ol></nav></aside></div></article></main><footer class="site-footer" data-pagefind-ignore><div class="footer-inner"><p>© 2026 吃栗子不 · Don’t compare</p><a href="/rss.xml">RSS</a></div><p class="site-stats"><span>全站访问（PV） —</span><span>全站访客（UV） —</span><span>Powered by <a href="https://astro.build/" rel="noreferrer" target="_blank">Astro</a></span></p></footer><script>(function(){const copyLabel = "复制";
+const copiedLabel = "已复制";
+
+      (() => {
+        document.querySelectorAll('.prose pre').forEach((block) => {
+          const code = block.querySelector('code');
+          if (!code || block.querySelector('.copy-code')) return;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'copy-code';
+          button.textContent = copyLabel;
+          button.addEventListener('click', async () => {
+            const value = code.textContent ?? '';
+            try {
+              await navigator.clipboard.writeText(value);
+            } catch {
+              return;
+            }
+            button.textContent = copiedLabel;
+            button.classList.add('is-copied');
+            window.setTimeout(() => {
+              button.textContent = copyLabel;
+              button.classList.remove('is-copied');
+            }, 1600);
+          });
+          block.appendChild(button);
+        });
+
+        const tocEntries = [...document.querySelectorAll('[data-toc-link]')].map((link) => {
+          const hash = link.getAttribute('href')?.slice(1) ?? '';
+          let id = hash;
+          try { id = decodeURIComponent(hash); } catch { /* Keep the original hash. */ }
+          return { link, id };
+        }).filter(({ id }) => id);
+
+        if (tocEntries.length > 0) {
+          const seen = new Set();
+          const headings = tocEntries
+            .map(({ id }) => document.getElementById(id))
+            .filter((heading) => heading && !seen.has(heading.id) && seen.add(heading.id));
+          let activeId = '';
+          let frame = 0;
+
+          const setActive = (id) => {
+            if (!id || id === activeId) return;
+            activeId = id;
+            tocEntries.forEach(({ link, id: linkId }) => {
+              const active = linkId === id;
+              link.classList.toggle('is-active', active);
+              if (active) link.setAttribute('aria-current', 'location');
+              else link.removeAttribute('aria-current');
+            });
+          };
+
+          const updateActiveHeading = () => {
+            frame = 0;
+            const readingLine = Math.min(180, window.innerHeight * .28);
+            let current = headings[0]?.id ?? '';
+            headings.forEach((heading) => {
+              if (heading.getBoundingClientRect().top <= readingLine) current = heading.id;
+            });
+            const atPageEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 12;
+            if (atPageEnd && headings.length > 0) current = headings[headings.length - 1].id;
+            setActive(current);
+          };
+
+          const requestUpdate = () => {
+            if (!frame) frame = window.requestAnimationFrame(updateActiveHeading);
+          };
+
+          window.addEventListener('scroll', requestUpdate, { passive: true });
+          window.addEventListener('resize', requestUpdate);
+          window.addEventListener('hashchange', requestUpdate);
+          tocEntries.forEach(({ link, id }) => link.addEventListener('click', () => setActive(id)));
+          updateActiveHeading();
+        }
+
+      })();
+    })();</script></body></html>

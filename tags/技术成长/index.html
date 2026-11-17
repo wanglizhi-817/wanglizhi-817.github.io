@@ -1,0 +1,79 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="吃栗子不关于 技术成长 的文章，共 1 篇。"><meta name="robots" content="index,follow"><meta name="theme-color" content="#f7f7f5"><link rel="canonical" href="https://wanglizhi-817.github.io/tags/%E6%8A%80%E6%9C%AF%E6%88%90%E9%95%BF/"><link rel="icon" href="/avatar.jpg" type="image/jpeg"><link rel="apple-touch-icon" href="/avatar.jpg"><link rel="alternate" type="application/rss+xml" title="LIZI STACK RSS" href="/rss.xml"><meta property="og:type" content="website"><meta property="og:site_name" content="LIZI STACK"><meta property="og:title" content="#技术成长 · LIZI STACK"><meta property="og:description" content="吃栗子不关于 技术成长 的文章，共 1 篇。"><meta property="og:url" content="https://wanglizhi-817.github.io/tags/%E6%8A%80%E6%9C%AF%E6%88%90%E9%95%BF/"><meta property="og:locale" content="zh_CN"><meta name="twitter:card" content="summary"><script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"LIZI STACK","description":"吃栗子不关于 技术成长 的文章，共 1 篇。","url":"https://wanglizhi-817.github.io/","inLanguage":"zh-CN","author":{"@type":"Person","name":"吃栗子不"}}</script><title>#技术成长 · LIZI STACK</title><link rel="stylesheet" href="/_astro/BaseLayout.BYkMXDTN.css"></head><body><a class="skip-link" href="#main">跳到正文</a><header class="site-header" data-pagefind-ignore><a class="brand" href="/" aria-label="LIZI STACK 首页"><span class="brand-wordmark">LIZI STACK</span></a><div class="header-actions"><nav class="desktop-nav" aria-label="主导航"><a class="active" href="/">文章</a><a href="/archive/">归档</a><a href="/resources/">资料</a><a href="/about/">关于</a></nav><div class="header-utilities"><a class="search-link" href="/search/" aria-label="搜索"><span aria-hidden="true">⌕</span><span>搜索</span></a><a class="language-switch" href="/en/" aria-label="切换语言"><span class="current-language">中</span><span>EN</span></a></div><details class="mobile-menu"><summary aria-label="菜单"><span class="menu-icon" aria-hidden="true"><i></i><i></i></span><span>菜单</span></summary><nav aria-label="主导航"><a class="active" href="/">文章</a><a href="/archive/">归档</a><a href="/resources/">资料</a><a href="/about/">关于</a></nav></details></div></header><main id="main" data-pagefind-body><section class="page-heading wrap"><p class="eyebrow">THE JOURNAL</p><h1>文字归档</h1><div class="taxonomy-title"><h2>#技术成长</h2><span>1 篇文章</span></div></section><section class="wrap taxonomy-list-shell"><ol class="taxonomy-post-list" data-pagefind-ignore><li><time datetime="2026-10-21T00:00:00.000Z">2026-10-21</time><a href="/notes/how-deep-should-i-learn/">学一项新技术，究竟要学到多深</a></li></ol></section></main><footer class="site-footer" data-pagefind-ignore><div class="footer-inner"><p>© 2026 吃栗子不 · Don’t compare</p><a href="/rss.xml">RSS</a></div><p class="site-stats"><span>全站访问（PV） —</span><span>全站访客（UV） —</span><span>Powered by <a href="https://astro.build/" rel="noreferrer" target="_blank">Astro</a></span></p></footer><script>(function(){const copyLabel = "复制";
+const copiedLabel = "已复制";
+
+      (() => {
+        document.querySelectorAll('.prose pre').forEach((block) => {
+          const code = block.querySelector('code');
+          if (!code || block.querySelector('.copy-code')) return;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'copy-code';
+          button.textContent = copyLabel;
+          button.addEventListener('click', async () => {
+            const value = code.textContent ?? '';
+            try {
+              await navigator.clipboard.writeText(value);
+            } catch {
+              return;
+            }
+            button.textContent = copiedLabel;
+            button.classList.add('is-copied');
+            window.setTimeout(() => {
+              button.textContent = copyLabel;
+              button.classList.remove('is-copied');
+            }, 1600);
+          });
+          block.appendChild(button);
+        });
+
+        const tocEntries = [...document.querySelectorAll('[data-toc-link]')].map((link) => {
+          const hash = link.getAttribute('href')?.slice(1) ?? '';
+          let id = hash;
+          try { id = decodeURIComponent(hash); } catch { /* Keep the original hash. */ }
+          return { link, id };
+        }).filter(({ id }) => id);
+
+        if (tocEntries.length > 0) {
+          const seen = new Set();
+          const headings = tocEntries
+            .map(({ id }) => document.getElementById(id))
+            .filter((heading) => heading && !seen.has(heading.id) && seen.add(heading.id));
+          let activeId = '';
+          let frame = 0;
+
+          const setActive = (id) => {
+            if (!id || id === activeId) return;
+            activeId = id;
+            tocEntries.forEach(({ link, id: linkId }) => {
+              const active = linkId === id;
+              link.classList.toggle('is-active', active);
+              if (active) link.setAttribute('aria-current', 'location');
+              else link.removeAttribute('aria-current');
+            });
+          };
+
+          const updateActiveHeading = () => {
+            frame = 0;
+            const readingLine = Math.min(180, window.innerHeight * .28);
+            let current = headings[0]?.id ?? '';
+            headings.forEach((heading) => {
+              if (heading.getBoundingClientRect().top <= readingLine) current = heading.id;
+            });
+            const atPageEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 12;
+            if (atPageEnd && headings.length > 0) current = headings[headings.length - 1].id;
+            setActive(current);
+          };
+
+          const requestUpdate = () => {
+            if (!frame) frame = window.requestAnimationFrame(updateActiveHeading);
+          };
+
+          window.addEventListener('scroll', requestUpdate, { passive: true });
+          window.addEventListener('resize', requestUpdate);
+          window.addEventListener('hashchange', requestUpdate);
+          tocEntries.forEach(({ link, id }) => link.addEventListener('click', () => setActive(id)));
+          updateActiveHeading();
+        }
+
+      })();
+    })();</script></body></html>

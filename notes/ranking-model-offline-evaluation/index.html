@@ -1,0 +1,135 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="离线指标提供的是证据而不是结论；数据切分、样本偏差和业务切片决定了这份证据是否可信。"><meta name="robots" content="index,follow"><meta name="theme-color" content="#f7f7f5"><link rel="canonical" href="https://wanglizhi-817.github.io/notes/ranking-model-offline-evaluation/"><link rel="alternate" hreflang="zh-CN" href="https://wanglizhi-817.github.io/notes/ranking-model-offline-evaluation/"><link rel="alternate" hreflang="en" href="https://wanglizhi-817.github.io/en/notes/ranking-model-offline-evaluation/"><link rel="alternate" hreflang="x-default" href="https://wanglizhi-817.github.io/notes/ranking-model-offline-evaluation/"><link rel="icon" href="/avatar.jpg" type="image/jpeg"><link rel="apple-touch-icon" href="/avatar.jpg"><link rel="alternate" type="application/rss+xml" title="LIZI STACK RSS" href="/rss.xml"><meta property="og:type" content="article"><meta property="og:site_name" content="LIZI STACK"><meta property="og:title" content="排序模型离线变好，为什么线上不一定更好 · LIZI STACK"><meta property="og:description" content="离线指标提供的是证据而不是结论；数据切分、样本偏差和业务切片决定了这份证据是否可信。"><meta property="og:url" content="https://wanglizhi-817.github.io/notes/ranking-model-offline-evaluation/"><meta property="og:locale" content="zh_CN"><meta property="og:locale:alternate" content="en_US"><meta property="article:published_time" content="2026-10-30T00:00:00.000Z"><meta property="article:modified_time" content="2026-10-30T00:00:00.000Z"><meta name="twitter:card" content="summary"><script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"LIZI STACK","description":"离线指标提供的是证据而不是结论；数据切分、样本偏差和业务切片决定了这份证据是否可信。","url":"https://wanglizhi-817.github.io/","inLanguage":"zh-CN","author":{"@type":"Person","name":"吃栗子不"}}</script><title>排序模型离线变好，为什么线上不一定更好 · LIZI STACK</title><link rel="stylesheet" href="/_astro/BaseLayout.BYkMXDTN.css"></head><body><a class="skip-link" href="#main">跳到正文</a><header class="site-header" data-pagefind-ignore><a class="brand" href="/" aria-label="LIZI STACK 首页"><span class="brand-wordmark">LIZI STACK</span></a><div class="header-actions"><nav class="desktop-nav" aria-label="主导航"><a class="active" href="/">文章</a><a href="/archive/">归档</a><a href="/resources/">资料</a><a href="/about/">关于</a></nav><div class="header-utilities"><a class="search-link" href="/search/" aria-label="搜索"><span aria-hidden="true">⌕</span><span>搜索</span></a><a class="language-switch" href="/en/notes/ranking-model-offline-evaluation/" aria-label="切换语言"><span class="current-language">中</span><span>EN</span></a></div><details class="mobile-menu"><summary aria-label="菜单"><span class="menu-icon" aria-hidden="true"><i></i><i></i></span><span>菜单</span></summary><nav aria-label="主导航"><a class="active" href="/">文章</a><a href="/archive/">归档</a><a href="/resources/">资料</a><a href="/about/">关于</a></nav></details></div></header><main id="main" data-pagefind-body><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"排序模型离线变好，为什么线上不一定更好","description":"离线指标提供的是证据而不是结论；数据切分、样本偏差和业务切片决定了这份证据是否可信。","datePublished":"2026-10-30T00:00:00.000Z","dateModified":"2026-10-30T00:00:00.000Z","author":{"@type":"Person","name":"吃栗子不"},"mainEntityOfPage":"https://wanglizhi-817.github.io/notes/ranking-model-offline-evaluation/","inLanguage":"zh-CN"}</script><article class="article wrap"><header class="article-header"><div class="post-meta" data-pagefind-ignore><a href="/topics/recommendation/">推荐系统</a><time datetime="2026-10-30T00:00:00.000Z">2026年10月30日</time><span>2 分钟</span></div><h1>排序模型离线变好，为什么线上不一定更好</h1><p>离线指标提供的是证据而不是结论；数据切分、样本偏差和业务切片决定了这份证据是否可信。</p><a class="article-language" href="/en/notes/ranking-model-offline-evaluation/" data-pagefind-ignore>Read in English →</a></header><details class="mobile-toc" data-pagefind-ignore><summary>本篇目录</summary><nav class="table-of-contents" aria-label="本篇目录"><p>本篇目录</p><ol><li><a href="#先检查数据是怎样来的" data-toc-link>先检查数据是怎样来的</a></li><li><a href="#不要让一个指标承担所有工作" data-toc-link>不要让一个指标承担所有工作</a></li><li><a href="#分群比平均值更接近问题" data-toc-link>分群比平均值更接近问题</a></li><li><a href="#离线评估的正确位置" data-toc-link>离线评估的正确位置</a></li></ol></nav></details><div class="article-layout"><div class="article-content"><div class="prose"><p>推荐系统里有一种很常见的兴奋：新模型的 AUC 提升了，于是大家自然期待线上指标也跟着上涨。遗憾的是，离线指标和线上收益之间从来不是简单映射。</p>
+<p>离线评估回答的是“在这份历史数据和这套定义下，模型是否更接近标签”。线上系统面对的却是会被模型反过来影响的用户、内容和流量分配。两者之间隔着数据生成过程。</p>
+<h2 id="先检查数据是怎样来的">先检查数据是怎样来的</h2>
+<p>一次可信的离线比较，至少需要回答以下问题：</p>
+<ol>
+<li>训练集和验证集是否按时间切分？</li>
+<li>同一用户或同一内容是否跨集合泄漏？</li>
+<li>负样本是自然曝光未点击，还是额外采样得到？</li>
+<li>标签窗口是否完整，延迟反馈是否被遗漏？</li>
+<li>样本是否只来自旧策略已经选择过的内容？</li>
+</ol>
+<p>最后一个问题尤其重要。日志只记录旧系统愿意展示的内容，新模型在未曝光区域的能力很难仅靠这些数据判断。</p>
+<h2 id="不要让一个指标承担所有工作">不要让一个指标承担所有工作</h2>
+<p>AUC 衡量整体排序能力，但它对头部位置未必足够敏感。NDCG、MRR 或 Precision@K 更接近有限展示位上的排序质量；校准误差则回答预测概率能不能被下游策略使用。</p>
+<p>指标选择应该跟模型的实际职责一致：</p>
+<table>
+<thead>
+<tr>
+<th>模型职责</th>
+<th>更值得关注的信号</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>粗排筛选</td>
+<td>Recall@K、覆盖率、延迟</td>
+</tr>
+<tr>
+<td>精排排序</td>
+<td>NDCG、分桶 AUC、头部位置变化</td>
+</tr>
+<tr>
+<td>点击率预估</td>
+<td>LogLoss、校准、分群稳定性</td>
+</tr>
+<tr>
+<td>多目标融合</td>
+<td>各目标收益、约束满足、帕累托变化</td>
+</tr>
+</tbody>
+</table>
+<p>即使最终只汇报一个主指标，也应该保留能解释它的辅助指标。</p>
+<h2 id="分群比平均值更接近问题">分群比平均值更接近问题</h2>
+<p>平均提升可能来自少量高活跃用户，也可能掩盖新用户、长尾内容或特定场景的退化。我通常会检查：</p>
+<ul>
+<li>新老用户；</li>
+<li>活跃度区间；</li>
+<li>内容类型与新鲜度；</li>
+<li>头部和长尾作者；</li>
+<li>不同流量入口；</li>
+<li>延迟和资源消耗。</li>
+</ul>
+<p>当一个模型只在某些切片上有效时，这不一定意味着模型失败。它可能提示我们应该做分场景策略，而不是强求一个模型覆盖所有流量。</p>
+<h2 id="离线评估的正确位置">离线评估的正确位置</h2>
+<p>离线结果适合做发布门槛、快速排除坏方案和缩小实验空间，但不能替代线上实验。更稳妥的流程是：离线回归通过，小流量验证保护指标，再逐步扩大实验。</p>
+<p>真正有价值的不是一次“指标提升”，而是建立离线变化与线上反馈之间的长期对应关系。当团队知道哪些离线信号更可能带来真实收益，评估体系才开始成为资产。</p>
+</div><footer class="article-footer"><div class="post-tags" aria-label="文章标签"><a href="/tags/%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/">#推荐系统</a><a href="/tags/%E6%8E%92%E5%BA%8F%E6%A8%A1%E5%9E%8B/">#排序模型</a><a href="/tags/%E7%A6%BB%E7%BA%BF%E8%AF%84%E4%BC%B0/">#离线评估</a></div><p>如果这篇文章对你有帮助，欢迎写信和我交流。</p><a href="mailto:wlz2024fall@163.com">来信交流 →</a></footer><nav class="article-pagination" aria-label="文章导航" data-pagefind-ignore><a href="/notes/agent-observability/"><small>← 上一篇</small><strong>Agent 真正需要的不是更多日志，而是可解释的轨迹</strong></a><a class="next-note" href="/notes/why-write/"><small>下一篇 →</small><strong>为什么要写这个博客：给技术成长留一份版本记录</strong></a></nav><section class="article-related" aria-labelledby="related-heading" data-pagefind-ignore><p class="eyebrow">RELATED WRITING</p><h2 id="related-heading">相关阅读</h2><div><a href="/notes/deepfm-reading/"><span>论文精读 · 2026年10月21日</span><strong>精读 DeepFM：一次学习低阶与高阶特征交互</strong></a><a href="/notes/engineering-note-template/"><span>工程实践 · 2026年10月18日</span><strong>一次推荐模型实验，应该留下哪些东西</strong></a><a href="/notes/esmm-reading/"><span>论文精读 · 2026年10月18日</span><strong>精读 ESMM：在全样本空间建模点击后转化</strong></a></div></section><section class="article-discussion" aria-labelledby="discussion-heading" data-pagefind-ignore><p class="eyebrow">DISCUSSION</p><h2 id="discussion-heading">讨论</h2><script src="https://giscus.app/client.js" data-repo="wanglizhi-817/lizhi-stack-comments" data-repo-id="R_kgDOVi4hsg" data-category="Announcements" data-category-id="DIC_kwDOVi4hss4DKYbz" data-mapping="specific" data-term="ranking-model-offline-evaluation" data-strict="1" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy" crossorigin="anonymous" async></script><noscript>请启用 JavaScript 以加载评论。</noscript></section></div><aside class="article-aside" aria-label="本篇目录" data-pagefind-ignore><nav class="table-of-contents" aria-label="本篇目录"><p>本篇目录</p><ol><li><a href="#先检查数据是怎样来的" data-toc-link>先检查数据是怎样来的</a></li><li><a href="#不要让一个指标承担所有工作" data-toc-link>不要让一个指标承担所有工作</a></li><li><a href="#分群比平均值更接近问题" data-toc-link>分群比平均值更接近问题</a></li><li><a href="#离线评估的正确位置" data-toc-link>离线评估的正确位置</a></li></ol></nav></aside></div></article></main><footer class="site-footer" data-pagefind-ignore><div class="footer-inner"><p>© 2026 吃栗子不 · Don’t compare</p><a href="/rss.xml">RSS</a></div><p class="site-stats"><span>全站访问（PV） —</span><span>全站访客（UV） —</span><span>Powered by <a href="https://astro.build/" rel="noreferrer" target="_blank">Astro</a></span></p></footer><script>(function(){const copyLabel = "复制";
+const copiedLabel = "已复制";
+
+      (() => {
+        document.querySelectorAll('.prose pre').forEach((block) => {
+          const code = block.querySelector('code');
+          if (!code || block.querySelector('.copy-code')) return;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'copy-code';
+          button.textContent = copyLabel;
+          button.addEventListener('click', async () => {
+            const value = code.textContent ?? '';
+            try {
+              await navigator.clipboard.writeText(value);
+            } catch {
+              return;
+            }
+            button.textContent = copiedLabel;
+            button.classList.add('is-copied');
+            window.setTimeout(() => {
+              button.textContent = copyLabel;
+              button.classList.remove('is-copied');
+            }, 1600);
+          });
+          block.appendChild(button);
+        });
+
+        const tocEntries = [...document.querySelectorAll('[data-toc-link]')].map((link) => {
+          const hash = link.getAttribute('href')?.slice(1) ?? '';
+          let id = hash;
+          try { id = decodeURIComponent(hash); } catch { /* Keep the original hash. */ }
+          return { link, id };
+        }).filter(({ id }) => id);
+
+        if (tocEntries.length > 0) {
+          const seen = new Set();
+          const headings = tocEntries
+            .map(({ id }) => document.getElementById(id))
+            .filter((heading) => heading && !seen.has(heading.id) && seen.add(heading.id));
+          let activeId = '';
+          let frame = 0;
+
+          const setActive = (id) => {
+            if (!id || id === activeId) return;
+            activeId = id;
+            tocEntries.forEach(({ link, id: linkId }) => {
+              const active = linkId === id;
+              link.classList.toggle('is-active', active);
+              if (active) link.setAttribute('aria-current', 'location');
+              else link.removeAttribute('aria-current');
+            });
+          };
+
+          const updateActiveHeading = () => {
+            frame = 0;
+            const readingLine = Math.min(180, window.innerHeight * .28);
+            let current = headings[0]?.id ?? '';
+            headings.forEach((heading) => {
+              if (heading.getBoundingClientRect().top <= readingLine) current = heading.id;
+            });
+            const atPageEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 12;
+            if (atPageEnd && headings.length > 0) current = headings[headings.length - 1].id;
+            setActive(current);
+          };
+
+          const requestUpdate = () => {
+            if (!frame) frame = window.requestAnimationFrame(updateActiveHeading);
+          };
+
+          window.addEventListener('scroll', requestUpdate, { passive: true });
+          window.addEventListener('resize', requestUpdate);
+          window.addEventListener('hashchange', requestUpdate);
+          tocEntries.forEach(({ link, id }) => link.addEventListener('click', () => setActive(id)));
+          updateActiveHeading();
+        }
+
+      })();
+    })();</script></body></html>

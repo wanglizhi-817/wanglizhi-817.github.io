@@ -1,0 +1,111 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="从曝光、点击、转化的概率链出发，理解 ESMM 如何缓解 CVR 预估中的样本选择偏差与数据稀疏。"><meta name="robots" content="index,follow"><meta name="theme-color" content="#f7f7f5"><link rel="canonical" href="https://wanglizhi-817.github.io/notes/esmm-reading/"><link rel="alternate" hreflang="zh-CN" href="https://wanglizhi-817.github.io/notes/esmm-reading/"><link rel="alternate" hreflang="en" href="https://wanglizhi-817.github.io/en/notes/esmm-reading/"><link rel="alternate" hreflang="x-default" href="https://wanglizhi-817.github.io/notes/esmm-reading/"><link rel="icon" href="/avatar.jpg" type="image/jpeg"><link rel="apple-touch-icon" href="/avatar.jpg"><link rel="alternate" type="application/rss+xml" title="LIZI STACK RSS" href="/rss.xml"><meta property="og:type" content="article"><meta property="og:site_name" content="LIZI STACK"><meta property="og:title" content="精读 ESMM：在全样本空间建模点击后转化 · LIZI STACK"><meta property="og:description" content="从曝光、点击、转化的概率链出发，理解 ESMM 如何缓解 CVR 预估中的样本选择偏差与数据稀疏。"><meta property="og:url" content="https://wanglizhi-817.github.io/notes/esmm-reading/"><meta property="og:locale" content="zh_CN"><meta property="og:locale:alternate" content="en_US"><meta property="article:published_time" content="2026-10-18T00:00:00.000Z"><meta property="article:modified_time" content="2026-10-18T00:00:00.000Z"><meta name="twitter:card" content="summary"><script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"LIZI STACK","description":"从曝光、点击、转化的概率链出发，理解 ESMM 如何缓解 CVR 预估中的样本选择偏差与数据稀疏。","url":"https://wanglizhi-817.github.io/","inLanguage":"zh-CN","author":{"@type":"Person","name":"吃栗子不"}}</script><title>精读 ESMM：在全样本空间建模点击后转化 · LIZI STACK</title><link rel="stylesheet" href="/_astro/BaseLayout.BYkMXDTN.css"></head><body><a class="skip-link" href="#main">跳到正文</a><header class="site-header" data-pagefind-ignore><a class="brand" href="/" aria-label="LIZI STACK 首页"><span class="brand-wordmark">LIZI STACK</span></a><div class="header-actions"><nav class="desktop-nav" aria-label="主导航"><a class="active" href="/">文章</a><a href="/archive/">归档</a><a href="/resources/">资料</a><a href="/about/">关于</a></nav><div class="header-utilities"><a class="search-link" href="/search/" aria-label="搜索"><span aria-hidden="true">⌕</span><span>搜索</span></a><a class="language-switch" href="/en/notes/esmm-reading/" aria-label="切换语言"><span class="current-language">中</span><span>EN</span></a></div><details class="mobile-menu"><summary aria-label="菜单"><span class="menu-icon" aria-hidden="true"><i></i><i></i></span><span>菜单</span></summary><nav aria-label="主导航"><a class="active" href="/">文章</a><a href="/archive/">归档</a><a href="/resources/">资料</a><a href="/about/">关于</a></nav></details></div></header><main id="main" data-pagefind-body><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"精读 ESMM：在全样本空间建模点击后转化","description":"从曝光、点击、转化的概率链出发，理解 ESMM 如何缓解 CVR 预估中的样本选择偏差与数据稀疏。","datePublished":"2026-10-18T00:00:00.000Z","dateModified":"2026-10-18T00:00:00.000Z","author":{"@type":"Person","name":"吃栗子不"},"mainEntityOfPage":"https://wanglizhi-817.github.io/notes/esmm-reading/","inLanguage":"zh-CN"}</script><article class="article wrap"><header class="article-header"><div class="post-meta" data-pagefind-ignore><a href="/topics/paper-reading/">论文精读</a><time datetime="2026-10-18T00:00:00.000Z">2026年10月18日</time><span>3 分钟</span></div><h1>精读 ESMM：在全样本空间建模点击后转化</h1><p>从曝光、点击、转化的概率链出发，理解 ESMM 如何缓解 CVR 预估中的样本选择偏差与数据稀疏。</p><a class="article-language" href="/en/notes/esmm-reading/" data-pagefind-ignore>Read in English →</a></header><details class="mobile-toc" data-pagefind-ignore><summary>本篇目录</summary><nav class="table-of-contents" aria-label="本篇目录"><p>本篇目录</p><ol><li><a href="#两个相互关联的问题" data-toc-link>两个相互关联的问题</a></li><li><a href="#概率链是模型的骨架" data-toc-link>概率链是模型的骨架</a></li><li><a href="#共享表示如何缓解稀疏" data-toc-link>共享表示如何缓解稀疏</a></li><li><a href="#落地时不能只复现结构" data-toc-link>落地时不能只复现结构</a></li><li><a href="#它解决了什么又没有解决什么" data-toc-link>它解决了什么，又没有解决什么</a></li><li><a href="#我的理解" data-toc-link>我的理解</a></li></ol></nav></details><div class="article-layout"><div class="article-content"><div class="prose"><p>论文：<a href="https://arxiv.org/abs/1804.07931">Entire Space Multi-Task Model: An Effective Approach for Estimating Post-Click Conversion Rate</a>，Ma 等，2018。</p>
+<p>CVR 模型要预测“用户点击之后是否转化”，但训练数据只在已点击样本上拥有转化标签，线上排序却要面对全部曝光。训练空间和推断空间不一致，正是 ESMM 要解决的起点。</p>
+<h2 id="两个相互关联的问题">两个相互关联的问题</h2>
+<p>传统做法从点击样本中训练 CVR 模型，会遇到：</p>
+<ol>
+<li><strong>样本选择偏差</strong>：点击不是随机事件。已点击样本的分布与全部曝光不同；</li>
+<li><strong>数据稀疏</strong>：转化比点击更少，CVR 分支得到的有效监督十分有限。</li>
+</ol>
+<p>如果简单把未点击样本都当成“未转化”训练 CVR，又混淆了“没有机会转化”和“点击后没有转化”。ESMM 转而利用用户行为的序列结构：曝光 → 点击 → 转化。</p>
+<h2 id="概率链是模型的骨架">概率链是模型的骨架</h2>
+<p>令 <code>CTR = P(click | impression)</code>，<code>CVR = P(conversion | click, impression)</code>，那么点击且转化的概率为：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>CTCVR = P(click &amp; conversion | impression)</span></span>
+<span class="line"><span>       = CTR × CVR</span></span></code></pre>
+<p>ESMM 训练 CTR 与 CVR 两个任务塔，并把两者输出相乘得到 CTCVR。训练损失由全曝光空间上的 CTR 标签与 CTCVR 标签共同组成。这样，模型不需要只在点击子集上单独优化一个 CVR 损失，而是通过可观测的完整空间目标约束 CVR 分支。</p>
+<p>这里最值得注意的是：ESMM 并不是为未点击样本虚构 CVR 标签。它利用概率乘法把一个不可直接观测的条件概率，连接到可以在全部曝光上定义的联合事件。</p>
+<h2 id="共享表示如何缓解稀疏">共享表示如何缓解稀疏</h2>
+<p>CTR 和 CVR 塔共享底层 Embedding。点击任务拥有更密集的监督，可以帮助稀疏特征学习更稳定的表示；CVR 任务再基于同一表示捕捉转化意图。</p>
+<p>这是一种典型的多任务迁移：共享层承接共性信息，任务塔保留各自目标。共享过少，稀疏任务得不到帮助；共享过多，又可能产生负迁移。因此在实际系统中，任务梯度的尺度、冲突和训练节奏都值得监控。</p>
+<h2 id="落地时不能只复现结构">落地时不能只复现结构</h2>
+<p>实现 ESMM 时，我会重点检查四件事：</p>
+<ul>
+<li>曝光、点击、转化标签是否严格满足漏斗定义；</li>
+<li>转化归因窗口是否一致，延迟转化是否被截断；</li>
+<li><code>pCTR × pCVR</code> 的数值与校准是否稳定；</li>
+<li>离线评估是否同时覆盖 CTR、CTCVR、CVR 以及业务切片。</li>
+</ul>
+<p>CVR 不能只在点击样本上看 AUC。还需要观察校准、不同流量位置和用户群的偏差，并最终用线上实验验证排序收益。</p>
+<h2 id="它解决了什么又没有解决什么">它解决了什么，又没有解决什么</h2>
+<p>ESMM 提供了处理样本空间不一致和稀疏监督的优雅框架，但“全空间训练”不等于估计天然无偏。后续研究指出，概率乘法、任务依赖和数据生成过程仍可能带来估计偏差。真实漏斗也常包含加购、收藏、到店等中间行为，单一的点击—转化链未必足够。</p>
+<h2 id="我的理解">我的理解</h2>
+<p>ESMM 最重要的价值，是先尊重业务事件之间的概率关系，再设计多任务目标。它没有直接为缺失标签找替代品，而是换了一个能够被完整观测的学习目标。</p>
+<p>当监督信号天然缺失时，好的模型设计往往不是制造更多标签，而是重新寻找可观测量之间的结构约束。</p>
+</div><footer class="article-footer"><div class="post-tags" aria-label="文章标签"><a href="/tags/%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/">#推荐系统</a><a href="/tags/CVR/">#CVR</a><a href="/tags/%E5%A4%9A%E4%BB%BB%E5%8A%A1%E5%AD%A6%E4%B9%A0/">#多任务学习</a><a href="/tags/ESMM/">#ESMM</a><a href="/tags/%E8%AE%BA%E6%96%87%E7%B2%BE%E8%AF%BB/">#论文精读</a></div><p>如果这篇文章对你有帮助，欢迎写信和我交流。</p><a href="mailto:wlz2024fall@163.com">来信交流 →</a></footer><nav class="article-pagination" aria-label="文章导航" data-pagefind-ignore><a href="/notes/engineering-note-template/"><small>← 上一篇</small><strong>一次推荐模型实验，应该留下哪些东西</strong></a><a class="next-note" href="/notes/react-reading/"><small>下一篇 →</small><strong>精读 ReAct：让 Agent 在推理与行动之间形成闭环</strong></a></nav><section class="article-related" aria-labelledby="related-heading" data-pagefind-ignore><p class="eyebrow">RELATED WRITING</p><h2 id="related-heading">相关阅读</h2><div><a href="/notes/deepfm-reading/"><span>论文精读 · 2026年10月21日</span><strong>精读 DeepFM：一次学习低阶与高阶特征交互</strong></a><a href="/notes/attention-is-all-you-need-reading/"><span>论文精读 · 2026年10月28日</span><strong>精读 Transformer：Attention 为什么能替代循环</strong></a><a href="/notes/react-reading/"><span>论文精读 · 2026年10月14日</span><strong>精读 ReAct：让 Agent 在推理与行动之间形成闭环</strong></a></div></section><section class="article-discussion" aria-labelledby="discussion-heading" data-pagefind-ignore><p class="eyebrow">DISCUSSION</p><h2 id="discussion-heading">讨论</h2><script src="https://giscus.app/client.js" data-repo="wanglizhi-817/lizhi-stack-comments" data-repo-id="R_kgDOVi4hsg" data-category="Announcements" data-category-id="DIC_kwDOVi4hss4DKYbz" data-mapping="specific" data-term="esmm-reading" data-strict="1" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy" crossorigin="anonymous" async></script><noscript>请启用 JavaScript 以加载评论。</noscript></section></div><aside class="article-aside" aria-label="本篇目录" data-pagefind-ignore><nav class="table-of-contents" aria-label="本篇目录"><p>本篇目录</p><ol><li><a href="#两个相互关联的问题" data-toc-link>两个相互关联的问题</a></li><li><a href="#概率链是模型的骨架" data-toc-link>概率链是模型的骨架</a></li><li><a href="#共享表示如何缓解稀疏" data-toc-link>共享表示如何缓解稀疏</a></li><li><a href="#落地时不能只复现结构" data-toc-link>落地时不能只复现结构</a></li><li><a href="#它解决了什么又没有解决什么" data-toc-link>它解决了什么，又没有解决什么</a></li><li><a href="#我的理解" data-toc-link>我的理解</a></li></ol></nav></aside></div></article></main><footer class="site-footer" data-pagefind-ignore><div class="footer-inner"><p>© 2026 吃栗子不 · Don’t compare</p><a href="/rss.xml">RSS</a></div><p class="site-stats"><span>全站访问（PV） —</span><span>全站访客（UV） —</span><span>Powered by <a href="https://astro.build/" rel="noreferrer" target="_blank">Astro</a></span></p></footer><script>(function(){const copyLabel = "复制";
+const copiedLabel = "已复制";
+
+      (() => {
+        document.querySelectorAll('.prose pre').forEach((block) => {
+          const code = block.querySelector('code');
+          if (!code || block.querySelector('.copy-code')) return;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'copy-code';
+          button.textContent = copyLabel;
+          button.addEventListener('click', async () => {
+            const value = code.textContent ?? '';
+            try {
+              await navigator.clipboard.writeText(value);
+            } catch {
+              return;
+            }
+            button.textContent = copiedLabel;
+            button.classList.add('is-copied');
+            window.setTimeout(() => {
+              button.textContent = copyLabel;
+              button.classList.remove('is-copied');
+            }, 1600);
+          });
+          block.appendChild(button);
+        });
+
+        const tocEntries = [...document.querySelectorAll('[data-toc-link]')].map((link) => {
+          const hash = link.getAttribute('href')?.slice(1) ?? '';
+          let id = hash;
+          try { id = decodeURIComponent(hash); } catch { /* Keep the original hash. */ }
+          return { link, id };
+        }).filter(({ id }) => id);
+
+        if (tocEntries.length > 0) {
+          const seen = new Set();
+          const headings = tocEntries
+            .map(({ id }) => document.getElementById(id))
+            .filter((heading) => heading && !seen.has(heading.id) && seen.add(heading.id));
+          let activeId = '';
+          let frame = 0;
+
+          const setActive = (id) => {
+            if (!id || id === activeId) return;
+            activeId = id;
+            tocEntries.forEach(({ link, id: linkId }) => {
+              const active = linkId === id;
+              link.classList.toggle('is-active', active);
+              if (active) link.setAttribute('aria-current', 'location');
+              else link.removeAttribute('aria-current');
+            });
+          };
+
+          const updateActiveHeading = () => {
+            frame = 0;
+            const readingLine = Math.min(180, window.innerHeight * .28);
+            let current = headings[0]?.id ?? '';
+            headings.forEach((heading) => {
+              if (heading.getBoundingClientRect().top <= readingLine) current = heading.id;
+            });
+            const atPageEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 12;
+            if (atPageEnd && headings.length > 0) current = headings[headings.length - 1].id;
+            setActive(current);
+          };
+
+          const requestUpdate = () => {
+            if (!frame) frame = window.requestAnimationFrame(updateActiveHeading);
+          };
+
+          window.addEventListener('scroll', requestUpdate, { passive: true });
+          window.addEventListener('resize', requestUpdate);
+          window.addEventListener('hashchange', requestUpdate);
+          tocEntries.forEach(({ link, id }) => link.addEventListener('click', () => setActive(id)));
+          updateActiveHeading();
+        }
+
+      })();
+    })();</script></body></html>

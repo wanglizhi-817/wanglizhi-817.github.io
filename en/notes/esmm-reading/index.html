@@ -1,0 +1,111 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="How the exposure-click-conversion probability chain helps ESMM address sample-selection bias and sparse supervision in CVR estimation."><meta name="robots" content="index,follow"><meta name="theme-color" content="#f7f7f5"><link rel="canonical" href="https://wanglizhi-817.github.io/en/notes/esmm-reading/"><link rel="alternate" hreflang="en" href="https://wanglizhi-817.github.io/en/notes/esmm-reading/"><link rel="alternate" hreflang="zh-CN" href="https://wanglizhi-817.github.io/notes/esmm-reading/"><link rel="alternate" hreflang="x-default" href="https://wanglizhi-817.github.io/notes/esmm-reading/"><link rel="icon" href="/avatar.jpg" type="image/jpeg"><link rel="apple-touch-icon" href="/avatar.jpg"><link rel="alternate" type="application/rss+xml" title="LIZI STACK RSS" href="/en/rss.xml"><meta property="og:type" content="article"><meta property="og:site_name" content="LIZI STACK"><meta property="og:title" content="Reading ESMM: Modeling Post-Click Conversion in the Entire Space · LIZI STACK"><meta property="og:description" content="How the exposure-click-conversion probability chain helps ESMM address sample-selection bias and sparse supervision in CVR estimation."><meta property="og:url" content="https://wanglizhi-817.github.io/en/notes/esmm-reading/"><meta property="og:locale" content="en_US"><meta property="og:locale:alternate" content="zh_CN"><meta property="article:published_time" content="2026-10-18T00:00:00.000Z"><meta property="article:modified_time" content="2026-10-18T00:00:00.000Z"><meta name="twitter:card" content="summary"><script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"LIZI STACK","description":"How the exposure-click-conversion probability chain helps ESMM address sample-selection bias and sparse supervision in CVR estimation.","url":"https://wanglizhi-817.github.io/","inLanguage":"en","author":{"@type":"Person","name":"吃栗子不"}}</script><title>Reading ESMM: Modeling Post-Click Conversion in the Entire Space · LIZI STACK</title><link rel="stylesheet" href="/_astro/BaseLayout.BYkMXDTN.css"></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header" data-pagefind-ignore><a class="brand" href="/en/" aria-label="LIZI STACK home"><span class="brand-wordmark">LIZI STACK</span></a><div class="header-actions"><nav class="desktop-nav" aria-label="Primary navigation"><a class="active" href="/en/">Notes</a><a href="/en/archive/">Archive</a><a href="/en/resources/">Resources</a><a href="/en/about/">About</a></nav><div class="header-utilities"><a class="search-link" href="/en/search/" aria-label="Search"><span aria-hidden="true">⌕</span><span>Search</span></a><a class="language-switch" href="/notes/esmm-reading/" aria-label="Change language"><span class="current-language">EN</span><span>中</span></a></div><details class="mobile-menu"><summary aria-label="Menu"><span class="menu-icon" aria-hidden="true"><i></i><i></i></span><span>Menu</span></summary><nav aria-label="Primary navigation"><a class="active" href="/en/">Notes</a><a href="/en/archive/">Archive</a><a href="/en/resources/">Resources</a><a href="/en/about/">About</a></nav></details></div></header><main id="main" data-pagefind-body><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Reading ESMM: Modeling Post-Click Conversion in the Entire Space","description":"How the exposure-click-conversion probability chain helps ESMM address sample-selection bias and sparse supervision in CVR estimation.","datePublished":"2026-10-18T00:00:00.000Z","dateModified":"2026-10-18T00:00:00.000Z","author":{"@type":"Person","name":"吃栗子不"},"mainEntityOfPage":"https://wanglizhi-817.github.io/en/notes/esmm-reading/","inLanguage":"en"}</script><article class="article wrap"><header class="article-header"><div class="post-meta" data-pagefind-ignore><a href="/en/topics/paper-reading/">Paper Notes</a><time datetime="2026-10-18T00:00:00.000Z">Oct 18, 2026</time><span>3 min read</span></div><h1>Reading ESMM: Modeling Post-Click Conversion in the Entire Space</h1><p>How the exposure-click-conversion probability chain helps ESMM address sample-selection bias and sparse supervision in CVR estimation.</p><a class="article-language" href="/notes/esmm-reading/" data-pagefind-ignore>阅读中文版 →</a></header><details class="mobile-toc" data-pagefind-ignore><summary>On this page</summary><nav class="table-of-contents" aria-label="On this page"><p>On this page</p><ol><li><a href="#two-connected-problems" data-toc-link>Two connected problems</a></li><li><a href="#the-probability-chain" data-toc-link>The probability chain</a></li><li><a href="#shared-representation-and-sparse-supervision" data-toc-link>Shared representation and sparse supervision</a></li><li><a href="#implementation-checks-that-matter" data-toc-link>Implementation checks that matter</a></li><li><a href="#what-it-solvesand-what-it-does-not" data-toc-link>What it solves—and what it does not</a></li><li><a href="#my-takeaway" data-toc-link>My takeaway</a></li></ol></nav></details><div class="article-layout"><div class="article-content"><div class="prose"><p>Paper: <a href="https://arxiv.org/abs/1804.07931">Entire Space Multi-Task Model: An Effective Approach for Estimating Post-Click Conversion Rate</a>, Ma et al., 2018.</p>
+<p>A CVR model predicts conversion after a click, yet conversion labels are available only for clicked impressions while online ranking covers every impression. ESMM starts from this mismatch between the training and inference spaces.</p>
+<h2 id="two-connected-problems">Two connected problems</h2>
+<p>A conventional CVR model trained only on clicked samples faces:</p>
+<ol>
+<li><strong>Sample-selection bias</strong>: clicks are not random, so clicked traffic differs from all exposed traffic.</li>
+<li><strong>Data sparsity</strong>: conversions are much rarer than clicks, leaving little supervision for the CVR task.</li>
+</ol>
+<p>Treating every unclicked impression as a negative CVR label would confuse “no opportunity to convert” with “clicked but did not convert.” ESMM instead uses the sequential structure of exposure → click → conversion.</p>
+<h2 id="the-probability-chain">The probability chain</h2>
+<p>Let <code>CTR = P(click | impression)</code> and <code>CVR = P(conversion | click, impression)</code>. The probability of both clicking and converting is:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>CTCVR = P(click &amp; conversion | impression)</span></span>
+<span class="line"><span>       = CTR × CVR</span></span></code></pre>
+<p>ESMM trains CTR and CVR towers, then multiplies their outputs to obtain CTCVR. Its losses use CTR and CTCVR labels defined over the entire impression space. The CVR tower is therefore constrained through an observable full-space target instead of a standalone loss over only clicked examples.</p>
+<p>ESMM does not invent CVR labels for unclicked impressions. Probability multiplication connects an unobserved conditional probability to a joint event that can be labeled across all impressions.</p>
+<h2 id="shared-representation-and-sparse-supervision">Shared representation and sparse supervision</h2>
+<p>The two towers share lower-level embeddings. The denser click task helps sparse features learn stable representations, and the CVR tower uses the same representation to capture conversion intent.</p>
+<p>This is classic multi-task transfer: shared layers carry common information while task towers preserve objective-specific behavior. Too little sharing offers limited transfer; too much can create negative transfer. Gradient scale, conflict, and training dynamics deserve monitoring in a production system.</p>
+<h2 id="implementation-checks-that-matter">Implementation checks that matter</h2>
+<p>Beyond reproducing the diagram, I would verify:</p>
+<ul>
+<li>whether exposure, click, and conversion labels follow a consistent funnel definition;</li>
+<li>whether attribution windows and delayed conversions are handled consistently;</li>
+<li>whether the <code>pCTR × pCVR</code> output remains numerically stable and calibrated;</li>
+<li>whether evaluation covers CTR, CTCVR, CVR, and important business slices.</li>
+</ul>
+<p>CVR quality should not be reduced to AUC on clicked samples. Calibration and bias across traffic positions and user groups matter, and ranking value ultimately needs online experiments.</p>
+<h2 id="what-it-solvesand-what-it-does-not">What it solves—and what it does not</h2>
+<p>ESMM provides an elegant framework for mismatched sample spaces and sparse supervision, but entire-space training does not guarantee a perfectly unbiased estimator. Later work has examined bias introduced by probability composition, task dependencies, and the data-generating process. Real funnels may also contain cart, favorite, or other intermediate actions that a single click-conversion chain cannot express.</p>
+<h2 id="my-takeaway">My takeaway</h2>
+<p>ESMM first respects the probability structure of business events and then designs the multi-task objective. Instead of manufacturing labels for missing outcomes, it finds a fully observable constraint.</p>
+<p>When supervision is naturally missing, better modeling often begins by reconsidering the relationships among observable quantities.</p>
+</div><footer class="article-footer"><div class="post-tags" aria-label="Article tags"><a href="/en/tags/Recommender%20Systems/">#Recommender Systems</a><a href="/en/tags/CVR/">#CVR</a><a href="/en/tags/Multi-Task%20Learning/">#Multi-Task Learning</a><a href="/en/tags/ESMM/">#ESMM</a><a href="/en/tags/Paper%20Notes/">#Paper Notes</a></div><p>If this note was useful, I would be glad to hear from you.</p><a href="mailto:wlz2024fall@163.com">Get in touch →</a></footer><nav class="article-pagination" aria-label="Article navigation" data-pagefind-ignore><a href="/en/notes/engineering-note-template/"><small>← Previous</small><strong>What a Recommender-Model Experiment Should Leave Behind</strong></a><a class="next-note" href="/en/notes/react-reading/"><small>Next →</small><strong>Reading ReAct: Closing the Loop Between Reasoning and Action</strong></a></nav><section class="article-related" aria-labelledby="related-heading" data-pagefind-ignore><p class="eyebrow">RELATED WRITING</p><h2 id="related-heading">Related notes</h2><div><a href="/en/notes/deepfm-reading/"><span>Paper Notes · Oct 21, 2026</span><strong>Reading DeepFM: Learning Low- and High-Order Feature Interactions Together</strong></a><a href="/en/notes/attention-is-all-you-need-reading/"><span>Paper Notes · Oct 28, 2026</span><strong>Reading Transformer: Why Attention Could Replace Recurrence</strong></a><a href="/en/notes/react-reading/"><span>Paper Notes · Oct 14, 2026</span><strong>Reading ReAct: Closing the Loop Between Reasoning and Action</strong></a></div></section><section class="article-discussion" aria-labelledby="discussion-heading" data-pagefind-ignore><p class="eyebrow">DISCUSSION</p><h2 id="discussion-heading">Discussion</h2><script src="https://giscus.app/client.js" data-repo="wanglizhi-817/lizhi-stack-comments" data-repo-id="R_kgDOVi4hsg" data-category="Announcements" data-category-id="DIC_kwDOVi4hss4DKYbz" data-mapping="specific" data-term="esmm-reading" data-strict="1" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="en" data-loading="lazy" crossorigin="anonymous" async></script><noscript>Enable JavaScript to load comments.</noscript></section></div><aside class="article-aside" aria-label="Table of contents" data-pagefind-ignore><nav class="table-of-contents" aria-label="On this page"><p>On this page</p><ol><li><a href="#two-connected-problems" data-toc-link>Two connected problems</a></li><li><a href="#the-probability-chain" data-toc-link>The probability chain</a></li><li><a href="#shared-representation-and-sparse-supervision" data-toc-link>Shared representation and sparse supervision</a></li><li><a href="#implementation-checks-that-matter" data-toc-link>Implementation checks that matter</a></li><li><a href="#what-it-solvesand-what-it-does-not" data-toc-link>What it solves—and what it does not</a></li><li><a href="#my-takeaway" data-toc-link>My takeaway</a></li></ol></nav></aside></div></article></main><footer class="site-footer" data-pagefind-ignore><div class="footer-inner"><p>© 2026 吃栗子不 · Don’t compare</p><a href="/en/rss.xml">RSS</a></div><p class="site-stats"><span>Page views (PV) —</span><span>Visitors (UV) —</span><span>Powered by <a href="https://astro.build/" rel="noreferrer" target="_blank">Astro</a></span></p></footer><script>(function(){const copyLabel = "Copy";
+const copiedLabel = "Copied";
+
+      (() => {
+        document.querySelectorAll('.prose pre').forEach((block) => {
+          const code = block.querySelector('code');
+          if (!code || block.querySelector('.copy-code')) return;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'copy-code';
+          button.textContent = copyLabel;
+          button.addEventListener('click', async () => {
+            const value = code.textContent ?? '';
+            try {
+              await navigator.clipboard.writeText(value);
+            } catch {
+              return;
+            }
+            button.textContent = copiedLabel;
+            button.classList.add('is-copied');
+            window.setTimeout(() => {
+              button.textContent = copyLabel;
+              button.classList.remove('is-copied');
+            }, 1600);
+          });
+          block.appendChild(button);
+        });
+
+        const tocEntries = [...document.querySelectorAll('[data-toc-link]')].map((link) => {
+          const hash = link.getAttribute('href')?.slice(1) ?? '';
+          let id = hash;
+          try { id = decodeURIComponent(hash); } catch { /* Keep the original hash. */ }
+          return { link, id };
+        }).filter(({ id }) => id);
+
+        if (tocEntries.length > 0) {
+          const seen = new Set();
+          const headings = tocEntries
+            .map(({ id }) => document.getElementById(id))
+            .filter((heading) => heading && !seen.has(heading.id) && seen.add(heading.id));
+          let activeId = '';
+          let frame = 0;
+
+          const setActive = (id) => {
+            if (!id || id === activeId) return;
+            activeId = id;
+            tocEntries.forEach(({ link, id: linkId }) => {
+              const active = linkId === id;
+              link.classList.toggle('is-active', active);
+              if (active) link.setAttribute('aria-current', 'location');
+              else link.removeAttribute('aria-current');
+            });
+          };
+
+          const updateActiveHeading = () => {
+            frame = 0;
+            const readingLine = Math.min(180, window.innerHeight * .28);
+            let current = headings[0]?.id ?? '';
+            headings.forEach((heading) => {
+              if (heading.getBoundingClientRect().top <= readingLine) current = heading.id;
+            });
+            const atPageEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 12;
+            if (atPageEnd && headings.length > 0) current = headings[headings.length - 1].id;
+            setActive(current);
+          };
+
+          const requestUpdate = () => {
+            if (!frame) frame = window.requestAnimationFrame(updateActiveHeading);
+          };
+
+          window.addEventListener('scroll', requestUpdate, { passive: true });
+          window.addEventListener('resize', requestUpdate);
+          window.addEventListener('hashchange', requestUpdate);
+          tocEntries.forEach(({ link, id }) => link.addEventListener('click', () => setActive(id)));
+          updateActiveHeading();
+        }
+
+      })();
+    })();</script></body></html>

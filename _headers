@@ -1,0 +1,6 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: https:; style-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com https://giscus.app; connect-src 'self' https://cloudflareinsights.com https://giscus.app; frame-src 'self' https://giscus.app; font-src 'self' data:; object-src 'none'; upgrade-insecure-requests
