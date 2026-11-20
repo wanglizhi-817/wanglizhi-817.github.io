@@ -78,5 +78,27 @@ const copiedLabel = "Copied";
           updateActiveHeading();
         }
 
+        const mobileMenu = document.querySelector('.mobile-menu');
+        if (mobileMenu instanceof HTMLDetailsElement) {
+          const summary = mobileMenu.querySelector('summary');
+          const closeMenu = () => {
+            if (mobileMenu.open) mobileMenu.open = false;
+          };
+
+          document.addEventListener('click', (event) => {
+            if (mobileMenu.open && event.target instanceof Node && !mobileMenu.contains(event.target)) {
+              closeMenu();
+            }
+          });
+
+          document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape' || !mobileMenu.open) return;
+            closeMenu();
+            if (summary instanceof HTMLElement) summary.focus();
+          });
+
+          mobileMenu.querySelectorAll('nav a').forEach((link) => link.addEventListener('click', closeMenu));
+        }
+
       })();
     })();</script></body></html>
