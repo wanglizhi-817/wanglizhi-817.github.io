@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="把 RAG 的失败拆成检索、上下文组织和生成三个阶段，才能知道下一次优化应该发生在哪里。"><meta name="robots" content="index,follow"><meta name="theme-color" content="#f7f7f5"><link rel="canonical" href="https://lizistack.cn/notes/rag-evaluation-from-retrieval-to-answer/"><link rel="alternate" hreflang="zh-CN" href="https://lizistack.cn/notes/rag-evaluation-from-retrieval-to-answer/"><link rel="alternate" hreflang="en" href="https://lizistack.cn/en/notes/rag-evaluation-from-retrieval-to-answer/"><link rel="alternate" hreflang="x-default" href="https://lizistack.cn/notes/rag-evaluation-from-retrieval-to-answer/"><link rel="icon" href="/avatar-96.jpg" type="image/jpeg"><link rel="apple-touch-icon" href="/avatar-192.jpg"><link rel="alternate" type="application/rss+xml" title="LIZI STACK RSS" href="/rss.xml"><meta property="og:type" content="article"><meta property="og:site_name" content="LIZI STACK"><meta property="og:title" content="评估 RAG，不应该只看答案像不像 · LIZI STACK"><meta property="og:description" content="把 RAG 的失败拆成检索、上下文组织和生成三个阶段，才能知道下一次优化应该发生在哪里。"><meta property="og:url" content="https://lizistack.cn/notes/rag-evaluation-from-retrieval-to-answer/"><meta property="og:locale" content="zh_CN"><meta property="og:locale:alternate" content="en_US"><meta property="article:published_time" content="2026-11-01T00:00:00.000Z"><meta property="article:modified_time" content="2026-11-01T00:00:00.000Z"><meta name="twitter:card" content="summary"><script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"LIZI STACK","description":"把 RAG 的失败拆成检索、上下文组织和生成三个阶段，才能知道下一次优化应该发生在哪里。","url":"https://lizistack.cn/","inLanguage":"zh-CN","author":{"@type":"Person","name":"吃栗子不"}}</script><title>评估 RAG，不应该只看答案像不像 · LIZI STACK</title><link rel="stylesheet" href="/_astro/BaseLayout.Chwa817v.css"></head><body><a class="skip-link" href="#main">跳到正文</a><header class="site-header" data-pagefind-ignore><a class="brand" href="/" aria-label="LIZI STACK 首页"><span class="brand-wordmark">LIZI STACK</span></a><div class="header-actions"><nav class="desktop-nav" aria-label="主导航"><a class="active" href="/">文章</a><a href="/archive/">归档</a><a href="/resources/">资料</a><a href="/about/">关于</a></nav><div class="header-utilities"><a class="search-link" href="/search/" aria-label="搜索"><span aria-hidden="true">⌕</span><span>搜索</span></a><a class="language-switch" href="/en/notes/rag-evaluation-from-retrieval-to-answer/" aria-label="切换语言"><span class="current-language">中</span><span>EN</span></a></div><details class="mobile-menu"><summary aria-label="菜单"><span class="menu-icon" aria-hidden="true"><i></i><i></i></span><span>菜单</span></summary><nav aria-label="主导航"><a class="active" href="/"><span class="mobile-nav-label">文章</span><span class="mobile-nav-state" aria-hidden="true"></span></a><a href="/archive/"><span class="mobile-nav-label">归档</span><span class="mobile-nav-state" aria-hidden="true"></span></a><a href="/resources/"><span class="mobile-nav-label">资料</span><span class="mobile-nav-state" aria-hidden="true"></span></a><a href="/about/"><span class="mobile-nav-label">关于</span><span class="mobile-nav-state" aria-hidden="true"></span></a></nav></details></div></header><main id="main" data-pagefind-body><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"评估 RAG，不应该只看答案像不像","description":"把 RAG 的失败拆成检索、上下文组织和生成三个阶段，才能知道下一次优化应该发生在哪里。","datePublished":"2026-11-01T00:00:00.000Z","dateModified":"2026-11-01T00:00:00.000Z","author":{"@type":"Person","name":"吃栗子不"},"mainEntityOfPage":"https://lizistack.cn/notes/rag-evaluation-from-retrieval-to-answer/","inLanguage":"zh-CN"}</script><article class="article wrap"><header class="article-header"><div class="post-meta" data-pagefind-ignore><a href="/topics/ai-engineering/">AI 工程</a><time datetime="2026-11-01T00:00:00.000Z">2026年11月1日</time><span>2 分钟</span></div><h1>评估 RAG，不应该只看答案像不像</h1><p>把 RAG 的失败拆成检索、上下文组织和生成三个阶段，才能知道下一次优化应该发生在哪里。</p><a class="article-language" href="/en/notes/rag-evaluation-from-retrieval-to-answer/" data-pagefind-ignore>Read in English →</a></header><details class="mobile-toc" data-pagefind-ignore><summary>本篇目录</summary><nav class="table-of-contents" aria-label="本篇目录"><p>本篇目录</p><ol><li><a href="#先把失败拆开" data-toc-link>先把失败拆开</a></li><li><a href="#一个最小的检索评估" data-toc-link>一个最小的检索评估</a></li><li><a href="#不只记录平均分" data-toc-link>不只记录平均分</a></li><li><a href="#让评估成为开发接口" data-toc-link>让评估成为开发接口</a></li></ol></nav></details><div class="article-layout"><div class="article-content"><div class="prose"><p>RAG 系统最容易让人产生错觉的地方，是答案读起来很流畅。流畅并不等于正确，更不意味着系统找到了应该依赖的证据。</p>
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="把 RAG 的失败拆成检索、上下文组织和生成三个阶段，才能知道下一次优化应该发生在哪里。"><meta name="robots" content="index,follow"><meta name="theme-color" content="#f7f7f5"><link rel="canonical" href="https://lizistack.cn/notes/rag-evaluation-from-retrieval-to-answer/"><link rel="alternate" hreflang="zh-CN" href="https://lizistack.cn/notes/rag-evaluation-from-retrieval-to-answer/"><link rel="alternate" hreflang="en" href="https://lizistack.cn/en/notes/rag-evaluation-from-retrieval-to-answer/"><link rel="alternate" hreflang="x-default" href="https://lizistack.cn/notes/rag-evaluation-from-retrieval-to-answer/"><link rel="icon" href="/avatar-96.jpg" type="image/jpeg"><link rel="apple-touch-icon" href="/avatar-192.jpg"><link rel="alternate" type="application/rss+xml" title="LIZI STACK RSS" href="/rss.xml"><meta property="og:type" content="article"><meta property="og:site_name" content="LIZI STACK"><meta property="og:title" content="评估 RAG，不应该只看答案像不像 · LIZI STACK"><meta property="og:description" content="把 RAG 的失败拆成检索、上下文组织和生成三个阶段，才能知道下一次优化应该发生在哪里。"><meta property="og:url" content="https://lizistack.cn/notes/rag-evaluation-from-retrieval-to-answer/"><meta property="og:locale" content="zh_CN"><meta property="og:locale:alternate" content="en_US"><meta property="article:published_time" content="2026-11-01T00:00:00.000Z"><meta property="article:modified_time" content="2026-11-01T00:00:00.000Z"><meta name="twitter:card" content="summary"><script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"LIZI STACK","description":"把 RAG 的失败拆成检索、上下文组织和生成三个阶段，才能知道下一次优化应该发生在哪里。","url":"https://lizistack.cn/","inLanguage":"zh-CN","author":{"@type":"Person","name":"吃栗子不"}}</script><script defer src="https://lizi-stack-analytics.vercel.app/script.js" data-website-id="ab1698f1-144d-4350-a1d5-b3f1deb9f733" data-domains="lizistack.cn" data-exclude-search="true" data-exclude-hash="true" data-do-not-track="true"></script><title>评估 RAG，不应该只看答案像不像 · LIZI STACK</title><link rel="stylesheet" href="/_astro/BaseLayout.BFeK9q3j.css"></head><body><a class="skip-link" href="#main">跳到正文</a><header class="site-header" data-pagefind-ignore><a class="brand" href="/" aria-label="LIZI STACK 首页"><span class="brand-wordmark">LIZI STACK</span></a><div class="header-actions"><nav class="desktop-nav" aria-label="主导航"><a class="active" href="/">文章</a><a href="/archive/">归档</a><a href="/resources/">资料</a><a href="/about/">关于</a></nav><div class="header-utilities"><a class="search-link" href="/search/" aria-label="搜索"><span aria-hidden="true">⌕</span><span>搜索</span></a><a class="language-switch" href="/en/notes/rag-evaluation-from-retrieval-to-answer/" aria-label="切换语言"><span class="current-language">中</span><span>EN</span></a></div><details class="mobile-menu"><summary aria-label="菜单"><span class="menu-icon" aria-hidden="true"><i></i><i></i></span><span>菜单</span></summary><nav aria-label="主导航"><a class="active" href="/"><span class="mobile-nav-label">文章</span><span class="mobile-nav-state" aria-hidden="true"></span></a><a href="/archive/"><span class="mobile-nav-label">归档</span><span class="mobile-nav-state" aria-hidden="true"></span></a><a href="/resources/"><span class="mobile-nav-label">资料</span><span class="mobile-nav-state" aria-hidden="true"></span></a><a href="/about/"><span class="mobile-nav-label">关于</span><span class="mobile-nav-state" aria-hidden="true"></span></a></nav></details></div></header><main id="main" data-pagefind-body><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"评估 RAG，不应该只看答案像不像","description":"把 RAG 的失败拆成检索、上下文组织和生成三个阶段，才能知道下一次优化应该发生在哪里。","datePublished":"2026-11-01T00:00:00.000Z","dateModified":"2026-11-01T00:00:00.000Z","author":{"@type":"Person","name":"吃栗子不"},"mainEntityOfPage":"https://lizistack.cn/notes/rag-evaluation-from-retrieval-to-answer/","inLanguage":"zh-CN"}</script><article class="article wrap"><header class="article-header"><div class="post-meta" data-pagefind-ignore><a href="/topics/ai-engineering/">AI 工程</a><time datetime="2026-11-01T00:00:00.000Z">2026年11月1日</time><span>2 分钟</span></div><h1>评估 RAG，不应该只看答案像不像</h1><p>把 RAG 的失败拆成检索、上下文组织和生成三个阶段，才能知道下一次优化应该发生在哪里。</p><a class="article-language" href="/en/notes/rag-evaluation-from-retrieval-to-answer/" data-pagefind-ignore>Read in English →</a></header><details class="mobile-toc" data-pagefind-ignore><summary>本篇目录</summary><nav class="table-of-contents" aria-label="本篇目录"><p>本篇目录</p><ol><li><a href="#先把失败拆开" data-toc-link>先把失败拆开</a></li><li><a href="#一个最小的检索评估" data-toc-link>一个最小的检索评估</a></li><li><a href="#不只记录平均分" data-toc-link>不只记录平均分</a></li><li><a href="#让评估成为开发接口" data-toc-link>让评估成为开发接口</a></li></ol></nav></details><div class="article-layout"><div class="article-content"><div class="prose"><p>RAG 系统最容易让人产生错觉的地方，是答案读起来很流畅。流畅并不等于正确，更不意味着系统找到了应该依赖的证据。</p>
 <p>如果只在最后比较答案文本，我们会把很多性质不同的问题混在一起：资料根本没被召回、召回了但排序靠后、上下文被截断，或者模型看见证据后仍然做了错误推断。更可操作的评估方式，是沿着系统链路逐段提问。</p>
 <h2 id="先把失败拆开">先把失败拆开</h2>
 <p>我倾向把一次 RAG 请求拆成三个层次：</p>
@@ -37,48 +37,74 @@
 <p>一套有用的评估，不是项目结束时才运行的报告，而是每次修改检索器、分块方式、提示词或模型之后都能执行的回归检查。</p>
 <p>我希望它最终回答的不是“这个版本得了多少分”，而是三个更具体的问题：这次修改改善了哪类请求？牺牲了什么？我们是否知道原因？</p>
 <p>当这些问题能被稳定回答，RAG 才从一个演示效果不错的原型，逐渐变成可维护的工程系统。</p>
-</div><footer class="article-footer"><div class="post-tags" aria-label="文章标签"><a href="/tags/RAG/">#RAG</a><a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">#大模型</a><a href="/tags/%E8%AF%84%E4%BC%B0/">#评估</a></div><p>如果这篇文章对你有帮助，欢迎写信和我交流。</p><a href="mailto:wlz2024fall@163.com">来信交流 →</a></footer><nav class="article-pagination" aria-label="文章导航" data-pagefind-ignore><span></span><a class="next-note" href="/notes/agent-observability/"><small>下一篇 →</small><strong>Agent 真正需要的不是更多日志，而是可解释的轨迹</strong></a></nav><section class="article-related" aria-labelledby="related-heading" data-pagefind-ignore><p class="eyebrow">RELATED WRITING</p><h2 id="related-heading">相关阅读</h2><div><a href="/notes/learning-in-public/"><span>AI 工程 · 2026年10月26日</span><strong>把学习过程写出来，而不只写模型结论</strong></a><a href="/notes/agent-observability/"><span>AI 工程 · 2026年10月31日</span><strong>Agent 真正需要的不是更多日志，而是可解释的轨迹</strong></a><a href="/notes/a-small-lab/"><span>AI 工程 · 2026年10月9日</span><strong>给还不成熟的 Agent 想法留一张桌子</strong></a></div></section><section class="article-discussion" aria-labelledby="discussion-heading" data-pagefind-ignore><p class="eyebrow">DISCUSSION</p><h2 id="discussion-heading">讨论</h2><script src="https://giscus.app/client.js" data-repo="wanglizhi-817/lizi-stack-comments" data-repo-id="R_kgDOVi4hsg" data-category="Announcements" data-category-id="DIC_kwDOVi4hss4DKYbz" data-mapping="specific" data-term="rag-evaluation-from-retrieval-to-answer" data-strict="1" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy" crossorigin="anonymous" async></script><noscript>请启用 JavaScript 以加载评论。</noscript></section></div><aside class="article-aside" aria-label="本篇目录" data-pagefind-ignore><nav class="table-of-contents" aria-label="本篇目录"><p>本篇目录</p><ol><li><a href="#先把失败拆开" data-toc-link>先把失败拆开</a></li><li><a href="#一个最小的检索评估" data-toc-link>一个最小的检索评估</a></li><li><a href="#不只记录平均分" data-toc-link>不只记录平均分</a></li><li><a href="#让评估成为开发接口" data-toc-link>让评估成为开发接口</a></li></ol></nav></aside></div></article></main><footer class="site-footer" data-pagefind-ignore><div class="footer-inner"><p>© 2026 吃栗子不 · Don’t compare</p><a href="/rss.xml">RSS</a></div><p class="site-stats"><span>全站访问（PV） <b data-site-pv aria-live="polite">—</b></span><span>全站访客（UV） <b data-site-uv aria-live="polite">—</b></span><span>Powered by <a href="https://astro.build/" rel="noreferrer" target="_blank">Astro</a></span></p></footer><script>(function(){const copyLabel = "复制";
+</div><footer class="article-footer"><div class="post-tags" aria-label="文章标签"><a href="/tags/RAG/">#RAG</a><a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">#大模型</a><a href="/tags/%E8%AF%84%E4%BC%B0/">#评估</a></div><p>如果这篇文章对你有帮助，欢迎写信和我交流。</p><a href="mailto:wlz2024fall@163.com">来信交流 →</a></footer><nav class="article-pagination" aria-label="文章导航" data-pagefind-ignore><span></span><a class="next-note" href="/notes/agent-observability/"><small>下一篇 →</small><strong>Agent 真正需要的不是更多日志，而是可解释的轨迹</strong></a></nav><section class="article-related" aria-labelledby="related-heading" data-pagefind-ignore><p class="eyebrow">RELATED WRITING</p><h2 id="related-heading">相关阅读</h2><div><a href="/notes/learning-in-public/"><span>AI 工程 · 2026年10月26日</span><strong>把学习过程写出来，而不只写模型结论</strong></a><a href="/notes/agent-observability/"><span>AI 工程 · 2026年10月31日</span><strong>Agent 真正需要的不是更多日志，而是可解释的轨迹</strong></a><a href="/notes/a-small-lab/"><span>AI 工程 · 2026年10月9日</span><strong>给还不成熟的 Agent 想法留一张桌子</strong></a></div></section><section class="article-discussion" aria-labelledby="discussion-heading" data-pagefind-ignore><p class="eyebrow">DISCUSSION</p><h2 id="discussion-heading">讨论</h2><script src="https://giscus.app/client.js" data-repo="wanglizhi-817/lizi-stack-comments" data-repo-id="R_kgDOVi4hsg" data-category="Announcements" data-category-id="DIC_kwDOVi4hss4DKYbz" data-mapping="specific" data-term="rag-evaluation-from-retrieval-to-answer" data-strict="1" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy" crossorigin="anonymous" async></script><noscript>请启用 JavaScript 以加载评论。</noscript></section></div><aside class="article-aside" aria-label="本篇目录" data-pagefind-ignore><nav class="table-of-contents" aria-label="本篇目录"><p>本篇目录</p><ol><li><a href="#先把失败拆开" data-toc-link>先把失败拆开</a></li><li><a href="#一个最小的检索评估" data-toc-link>一个最小的检索评估</a></li><li><a href="#不只记录平均分" data-toc-link>不只记录平均分</a></li><li><a href="#让评估成为开发接口" data-toc-link>让评估成为开发接口</a></li></ol></nav></aside></div></article></main><footer class="site-footer" data-pagefind-ignore><div class="footer-inner"><p>© 2026 吃栗子不 · Don’t compare</p><a href="/rss.xml">RSS</a></div><p class="site-stats"><span class="site-stats__counter"><span class="site-stats__counts" data-site-stats-counts hidden><span class="site-stats__item">全站访问（PV） <b data-site-pv></b></span><span class="site-stats__separator" aria-hidden="true">·</span><span class="site-stats__item">全站访客（UV） <b data-site-uv></b></span></span><span class="site-stats__status" data-site-stats-status role="status" aria-live="polite">统计加载中…</span></span><span class="site-stats__separator" aria-hidden="true">·</span><span class="site-stats__item">Powered by <a href="https://astro.build/" rel="noreferrer" target="_blank">Astro</a></span></p></footer><script>(function(){const copyLabel = "复制";
 const copiedLabel = "已复制";
-const statsEndpoint = "";
+const statsUnavailableLabel = "统计暂不可用";
+const statsEndpoint = "https://lizi-stack-analytics.vercel.app/api/public/blog-stats";
 
       (() => {
-        const updateSiteStats = (stats) => {
+        const status = document.querySelector('[data-site-stats-status]');
+        const counts = document.querySelector('[data-site-stats-counts]');
+
+        const showFailure = () => {
+          if (counts) counts.hidden = true;
+          if (status) {
+            status.hidden = false;
+            status.textContent = statsUnavailableLabel;
+          }
+        };
+
+        const showStats = (stats) => {
+          const pvValue = stats?.pv;
+          const uvValue = stats?.uv;
+
+          if (
+            !Number.isSafeInteger(pvValue)
+            || !Number.isSafeInteger(uvValue)
+            || pvValue < 0
+            || uvValue < 0
+            || uvValue > pvValue
+          ) {
+            throw new Error('Invalid statistics');
+          }
+
           const pv = document.querySelector('[data-site-pv]');
           const uv = document.querySelector('[data-site-uv]');
-          if (pv && Number.isFinite(stats?.pv)) pv.textContent = Number(stats.pv).toLocaleString();
-          if (uv && Number.isFinite(stats?.uv)) uv.textContent = Number(stats.uv).toLocaleString();
+          if (pv) pv.textContent = pvValue.toLocaleString();
+          if (uv) uv.textContent = uvValue.toLocaleString();
+          if (counts) counts.hidden = false;
+          if (status) status.hidden = true;
         };
 
         const loadSiteStats = async () => {
-          if (!statsEndpoint) return;
-          const endpoint = statsEndpoint.replace(/\/$/, '');
-          const trackingDisabled = navigator.doNotTrack === '1' || window.doNotTrack === '1';
-
-          if (!trackingDisabled) {
-            try {
-              const storageKey = 'lizi-stack-visitor';
-              let visitorId = window.localStorage.getItem(storageKey);
-              if (!visitorId) {
-                visitorId = window.crypto.randomUUID();
-                window.localStorage.setItem(storageKey, visitorId);
-              }
-              const response = await fetch(`${endpoint}/collect`, {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ path: window.location.pathname, visitorId })
-              });
-              if (response.ok) {
-                const result = await response.json();
-                updateSiteStats(result.site);
-                return;
-              }
-            } catch { /* The counter must never block the page. */ }
+          if (!statsEndpoint) {
+            showFailure();
+            return;
           }
 
+          const controller = new AbortController();
+          let settled = false;
+          const timer = window.setTimeout(() => {
+            settled = true;
+            controller.abort();
+            showFailure();
+          }, 10000);
+
           try {
-            const response = await fetch(`${endpoint}/stats`);
-            if (response.ok) updateSiteStats((await response.json()).site);
-          } catch { /* Keep the unobtrusive fallback dash. */ }
+            const response = await fetch(statsEndpoint, {
+              credentials: 'omit',
+              signal: controller.signal
+            });
+            if (!response.ok) throw new Error('Statistics unavailable');
+            const result = await response.json();
+            if (settled || result?.source !== 'umami-self-hosted') return;
+            showStats(result.site);
+          } catch {
+            if (!settled) showFailure();
+          } finally {
+            settled = true;
+            window.clearTimeout(timer);
+          }
         };
 
         loadSiteStats();
